@@ -7,7 +7,7 @@ using System.Text;
 
 namespace KodotiSellsService
 {
-    public class OrderService
+    public class InvoiceService
     {
          public List<InvoiceViewModel> GetAll()
         {
@@ -48,6 +48,48 @@ namespace KodotiSellsService
             }
 
             return result;
+        }
+
+        public InvoiceViewModel GetInvoiceById(int id)
+        {
+            var invoiceViewModel = new InvoiceViewModel();
+
+            try
+            {
+                using (var context = new SqlConnection(Parameters.Connectionstring))
+                {
+                    context.Open();
+
+                    var cmd = new SqlCommand("select * from Invoices where id = @Id",context);
+                    cmd.Parameters.AddWithValue("@Id", id);
+
+                    using (var read = cmd.ExecuteReader())
+                    {
+                       
+                        read.Read();
+
+                        invoiceViewModel.Id = Convert.ToInt32(read["Id"]);
+                        invoiceViewModel.Iva = Convert.ToDecimal(read["Iva"]);
+                        invoiceViewModel.SubTotal = Convert.ToDecimal(read["SubTotal"]);
+                        invoiceViewModel.Total = Convert.ToDecimal(read["Total"]);
+                        invoiceViewModel.ClientId = Convert.ToInt32(read["ClientId"]); 
+                    }
+              
+                    
+                    
+                    //Client:
+                    SetClient(invoiceViewModel, context);
+                    SetInvoiceDetails(invoiceViewModel, context);   
+                }
+
+                return invoiceViewModel;
+            }
+            catch(Exception ex) 
+            {
+
+
+                return null;
+            }
         }
 
         private void SetClient(InvoiceViewModel invoiceViewModel, SqlConnection context)

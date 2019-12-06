@@ -10,5 +10,7 @@ namespace KodetiSellsModels
         {
             InvoiceDetails = new List<InvoiceDetail>();
         }
+
+        public string Error { get; set; }
     }
 }

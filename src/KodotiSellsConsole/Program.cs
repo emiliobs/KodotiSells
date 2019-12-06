@@ -9,8 +9,9 @@ namespace KodotiSellsConsole
         {
             //TestService.TestConnection();
 
-            var orderService = new OrderService();
-            var result =  orderService.GetAll();
+            var orderService = new InvoiceService();
+            //var result =  orderService.GetAll();
+            var result = orderService.GetInvoiceById(55);
 
             Console.ReadKey();
 
