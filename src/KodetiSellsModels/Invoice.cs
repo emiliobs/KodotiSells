@@ -14,5 +14,6 @@ namespace KodetiSellsModels
 
         //relation
         public Client Client { get; set; }
+        public  List<InvoiceDetail> InvoiceDetails { get; set; }
     }
 }

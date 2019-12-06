@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\KodotiSellsCommon\KodotiSellsCommon.csproj" />
+    <ProjectReference Include="..\KodetiSellsModels\KodetiSellsModels.csproj" />
   </ItemGroup>
 
 </Project>
