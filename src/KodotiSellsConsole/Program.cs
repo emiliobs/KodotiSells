@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KodotiSellsService;
+using System;
 
 namespace KodotiSellsConsole
 {
@@ -6,7 +7,10 @@ namespace KodotiSellsConsole
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            TestService.TestConnection();
+
+            Console.ReadKey();
+
         }
     }
 }
