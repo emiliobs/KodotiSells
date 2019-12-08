@@ -3,13 +3,13 @@ using KodotiSellsCommon;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Text;
+using System.Linq;
 
 namespace KodotiSellsService
 {
     public class InvoiceService
     {
-         public List<InvoiceViewModel> GetAll()
+        public List<InvoiceViewModel> GetAll()
         {
             var result = new List<InvoiceViewModel>();
 
@@ -34,7 +34,7 @@ namespace KodotiSellsService
 
                         result.Add(invoiceViewModel);
                     }
-                }    
+                }
 
                 //Set aditional properties
                 foreach (var invoiceViewModel in result)
@@ -50,6 +50,73 @@ namespace KodotiSellsService
             return result;
         }
 
+        public void Create(InvoiceViewModel invoiceViewModel)
+        {
+            PreparedOrder(invoiceViewModel);
+
+            using (var db = new SqlConnection(Parameters.Connectionstring))
+            {
+                db.Open();
+
+                //Insert Header
+                AddHeader(invoiceViewModel, db);
+
+                //InvoiceDetail
+                AddInvoiceDetail(invoiceViewModel, db);
+            }
+        }
+
+        private void AddHeader(InvoiceViewModel invoiceViewModel, SqlConnection sqlConnection)
+        {
+            var sqlQuery = "Insert Into Invoices(ClientId, Iva, SubTotal, Total) output INSERTED.ID Values (@ClientId, @Iva, @SubTotal, @Total)";
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
+
+            cmd.Parameters.AddWithValue("@ClientId", invoiceViewModel.ClientId);
+            cmd.Parameters.AddWithValue("@Iva", invoiceViewModel.Iva);
+            cmd.Parameters.AddWithValue("@SubTotal", invoiceViewModel.SubTotal);
+            cmd.Parameters.AddWithValue("@Total", invoiceViewModel.Total);
+
+            invoiceViewModel.Id = Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        private void AddInvoiceDetail(InvoiceViewModel invoiceViewModel, SqlConnection sqlConnection)
+        {
+            foreach (var details in invoiceViewModel.InvoiceDetails)
+            {
+                var sqlQuery = "Insert Into InvoiceDetail(InvoiceId,ProductId,Quantity,Price,Iva,SubTotal,Total) " +
+                                "Values (@InvoiceId,@ProductId,@Quantity,@Price,@Iva,@SubTotal,@Total)";
+                var cmd = new SqlCommand(sqlQuery, sqlConnection);
+
+                cmd.Parameters.AddWithValue("@InvoiceId", invoiceViewModel.Id);
+                cmd.Parameters.AddWithValue("@ProductId", details.ProductId);
+                cmd.Parameters.AddWithValue("@Quantity", details.Quantity);
+                cmd.Parameters.AddWithValue("@Price", details.Price);
+                cmd.Parameters.AddWithValue("@Iva", details.Iva);
+                cmd.Parameters.AddWithValue("@SubTotal", details.SubTotal);
+                cmd.Parameters.AddWithValue("@Total", details.Total);
+
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private void PreparedOrder(InvoiceViewModel invoiceViewModel)
+        {
+
+            //cualculos del invoiceDetails
+            foreach (var detail in invoiceViewModel.InvoiceDetails)
+            {
+                detail.Total = detail.Quantity * detail.Price;
+                detail.Iva = detail.Total * Parameters.IvaRate;
+                detail.SubTotal = detail.Total - detail.Iva;
+            }
+
+            //aqui sumo todos los calculos de los totales:
+            invoiceViewModel.Total = invoiceViewModel.InvoiceDetails.Sum(t => t.Total);
+            invoiceViewModel.Iva = invoiceViewModel.InvoiceDetails.Sum(i => i.Iva);
+            invoiceViewModel.SubTotal = invoiceViewModel.InvoiceDetails.Sum(s => s.SubTotal);
+
+        }
+
         public InvoiceViewModel GetInvoiceById(int id)
         {
             var invoiceViewModel = new InvoiceViewModel();
@@ -60,31 +127,31 @@ namespace KodotiSellsService
                 {
                     context.Open();
 
-                    var cmd = new SqlCommand("select * from Invoices where id = @Id",context);
+                    var cmd = new SqlCommand("select * from Invoices where id = @Id", context);
                     cmd.Parameters.AddWithValue("@Id", id);
 
                     using (var read = cmd.ExecuteReader())
                     {
-                       
+
                         read.Read();
 
                         invoiceViewModel.Id = Convert.ToInt32(read["Id"]);
                         invoiceViewModel.Iva = Convert.ToDecimal(read["Iva"]);
                         invoiceViewModel.SubTotal = Convert.ToDecimal(read["SubTotal"]);
                         invoiceViewModel.Total = Convert.ToDecimal(read["Total"]);
-                        invoiceViewModel.ClientId = Convert.ToInt32(read["ClientId"]); 
+                        invoiceViewModel.ClientId = Convert.ToInt32(read["ClientId"]);
                     }
-              
-                    
-                    
+
+
+
                     //Client:
                     SetClient(invoiceViewModel, context);
-                    SetInvoiceDetails(invoiceViewModel, context);   
+                    SetInvoiceDetails(invoiceViewModel, context);
                 }
 
                 return invoiceViewModel;
             }
-            catch(Exception ex) 
+            catch (Exception ex)
             {
 
 
@@ -96,7 +163,7 @@ namespace KodotiSellsService
         {
             var command = new SqlCommand("Select * from Clients where Id = @ClientdId", context);
             command.Parameters.AddWithValue("@ClientdId", invoiceViewModel.ClientId);
-            
+
 
             using (var reader = command.ExecuteReader())
             {
@@ -108,9 +175,9 @@ namespace KodotiSellsService
                     Name = reader["Name"].ToString(),
                 };
             };
-            
 
-           // invoice.Client = client;
+
+            // invoice.Client = client;
         }
 
         private void SetInvoiceDetails(InvoiceViewModel invoiceViewModel, SqlConnection context)
@@ -125,17 +192,17 @@ namespace KodotiSellsService
                 //aqui itero por que puede haver muxhos registro InvoiceDetails Realcionados
                 while (reader.Read())
                 {
-                    invoiceViewModel.InvoiceDetails.Add(new InvoiceDetail 
+                    invoiceViewModel.InvoiceDetails.Add(new InvoiceDetail
                     {
-                         Id = Convert.ToInt32(reader["Id"]),
-                         ProductId = Convert.ToInt32(reader["ProductId"]),
-                         InvoiceId = Convert.ToInt32(reader["InvoiceId"]),
-                         Quantity = Convert.ToInt32(reader["Quantity"]),
-                         Iva = Convert.ToDecimal(reader["Iva"]),
-                         SubTotal = Convert.ToDecimal(reader["SubTotal"]),
-                         Total = Convert.ToDecimal(reader["Total"]),
-                         Price = Convert.ToDecimal(reader["Price"]),
-                         Invoice = invoiceViewModel,
+                        Id = Convert.ToInt32(reader["Id"]),
+                        ProductId = Convert.ToInt32(reader["ProductId"]),
+                        InvoiceId = Convert.ToInt32(reader["InvoiceId"]),
+                        Quantity = Convert.ToInt32(reader["Quantity"]),
+                        Iva = Convert.ToDecimal(reader["Iva"]),
+                        SubTotal = Convert.ToDecimal(reader["SubTotal"]),
+                        Total = Convert.ToDecimal(reader["Total"]),
+                        Price = Convert.ToDecimal(reader["Price"]),
+                        Invoice = invoiceViewModel,
                     });
                 }
 
