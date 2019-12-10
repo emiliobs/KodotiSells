@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Transactions;
 
 namespace KodotiSellsService
 {
@@ -54,17 +55,88 @@ namespace KodotiSellsService
         {
             PreparedOrder(invoiceViewModel);
 
-            using (var db = new SqlConnection(Parameters.Connectionstring))
+            using (var transaction = new TransactionScope() )
             {
-                db.Open();
+                using (var db = new SqlConnection(Parameters.Connectionstring))
+                {
+                    db.Open();
 
-                //Insert Header
-                AddHeader(invoiceViewModel, db);
+                    //Insert Header
+                    AddHeader(invoiceViewModel, db);
 
-                //InvoiceDetail
-                AddInvoiceDetail(invoiceViewModel, db);
+                    //InvoiceDetail
+                    AddInvoiceDetail(invoiceViewModel, db);
+                }
+
+
+
+                transaction.Complete();
             }
         }
+
+        public void Update(InvoiceViewModel invoiceViewModel)
+        {
+            PreparedOrder(invoiceViewModel);
+
+            using (var transaction = new TransactionScope())
+            {
+                using (var context = new SqlConnection(Parameters.Connectionstring))
+                {
+                    context.Open();
+
+                    //Header
+                    UpdateHeader(invoiceViewModel, context);
+
+                    //Remove
+                    RemoverInvoiceDetail(invoiceViewModel.Id, context);
+
+                    //Detail
+                    AddInvoiceDetail(invoiceViewModel, context);
+
+
+                }
+
+                transaction.Complete();
+            }
+        }
+
+        public void Delete(int id)
+        {
+            using (var context = new SqlConnection(Parameters.Connectionstring))
+            {
+                context.Open();
+
+                var cmd = new SqlCommand("Delete  From Invoices where Id = @Id", context);
+                cmd.Parameters.AddWithValue("@Id", id);
+
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private void RemoverInvoiceDetail(int invoiceId, SqlConnection sqlConnection)
+        {
+            var query = "Delete from InvoiceDetail where InvoiceId = @InvoiceId";
+
+            var cmd = new SqlCommand(query, sqlConnection);
+            cmd.Parameters.AddWithValue("@InvoiceId", invoiceId);
+
+            cmd.ExecuteNonQuery();
+        }
+
+        private void UpdateHeader(InvoiceViewModel invoiceViewModel, SqlConnection sqlConnection)
+        {
+            var sqlQuery = "Update Invoices Set ClientId = @ClientId, Iva = @Iva, SubTotal = @SubTotal, Total = @Total Where Id = @Id";
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
+
+            cmd.Parameters.AddWithValue("@ClientId", invoiceViewModel.ClientId);
+            cmd.Parameters.AddWithValue("@Iva", invoiceViewModel.Iva);
+            cmd.Parameters.AddWithValue("@SubTotal", invoiceViewModel.SubTotal);
+            cmd.Parameters.AddWithValue("@Total", invoiceViewModel.Total);
+            cmd.Parameters.AddWithValue("@Id", invoiceViewModel.Id);
+
+            cmd.ExecuteNonQuery();   
+        }
+
 
         private void AddHeader(InvoiceViewModel invoiceViewModel, SqlConnection sqlConnection)
         {
