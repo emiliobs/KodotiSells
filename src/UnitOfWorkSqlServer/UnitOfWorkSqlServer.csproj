@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\KodotiSellsCommon\KodotiSellsCommon.csproj" />
+    <ProjectReference Include="..\RepositoryInterface\RepositoryInterface.csproj" />
+    <ProjectReference Include="..\RepositorySQLServer\RepositorySQLServer.csproj" />
     <ProjectReference Include="..\UinitOfworkInterface\UinitOfworkInterface.csproj" />
   </ItemGroup>
 
