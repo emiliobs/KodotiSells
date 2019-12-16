@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\KodotiSellsCommon\KodotiSellsCommon.csproj" />
     <ProjectReference Include="..\KodetiSellsModels\KodetiSellsModels.csproj" />
     <ProjectReference Include="..\KodotiSellsCommon\KodotiSellsCommon.csproj" />
+    <ProjectReference Include="..\UinitOfworkInterface\UinitOfworkInterface.csproj" />
   </ItemGroup>
 
 </Project>

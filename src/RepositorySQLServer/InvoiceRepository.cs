@@ -16,7 +16,16 @@ namespace RepositorySQLServer
         }
         public void Create(Invoice invoice)
         {
-            throw new System.NotImplementedException();
+            var query = "Insert into Invoices(ClientId, Iva, SubTotal, Total) output INSERTED.ID " +
+                "        values (@ClientId, @Iva, @SubTotal, @Total)";
+            var cmd = CreateCommnad(query);
+
+            cmd.Parameters.AddWithValue("@ClientId", invoice.ClientId);
+            cmd.Parameters.AddWithValue("@Iva", invoice.Iva);
+            cmd.Parameters.AddWithValue("@SubTotal", invoice.SubTotal);
+            cmd.Parameters.AddWithValue("@Total", invoice.Total);
+
+            invoice.Id = Convert.ToInt32(cmd.ExecuteScalar());
         }
 
         public IEnumerator<Invoice> GetAll()

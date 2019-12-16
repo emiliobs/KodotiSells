@@ -5,11 +5,19 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Transactions;
+using UinitOfworkInterface;
 
 namespace KodotiSellsService
 {
     public class InvoiceService
     {
+        private readonly IUnitOfwork _unitOfwork;
+
+        public InvoiceService(IUnitOfwork unitOfwork)
+        {
+            _unitOfwork = unitOfwork;
+        }
+
         public List<InvoiceViewModel> GetAll()
         {
             var result = new List<InvoiceViewModel>();
@@ -55,6 +63,18 @@ namespace KodotiSellsService
         {
             PreparedOrder(invoiceViewModel);
 
+            using (var context = _unitOfwork.Create())
+            {
+                //Header:
+                context.Repository.InvoiceRepository.Create(invoiceViewModel);
+
+                //Details
+                context.Repository.InvoiceDetailsRepository.Create(invoiceViewModel.InvoiceDetails, invoiceViewModel.Id);
+
+                context.SaveChange();
+
+            }
+
             using (var transaction = new TransactionScope() )
             {
                 using (var db = new SqlConnection(Parameters.Connectionstring))
@@ -62,10 +82,10 @@ namespace KodotiSellsService
                     db.Open();
 
                     //Insert Header
-                    AddHeader(invoiceViewModel, db);
+                    //AddHeader(invoiceViewModel, db);
 
                     //InvoiceDetail
-                    AddInvoiceDetail(invoiceViewModel, db);
+                    //AddInvoiceDetail(invoiceViewModel, db);
                 }
 
 
@@ -78,39 +98,63 @@ namespace KodotiSellsService
         {
             PreparedOrder(invoiceViewModel);
 
-            using (var transaction = new TransactionScope())
+            using (var context = _unitOfwork.Create())
             {
-                using (var context = new SqlConnection(Parameters.Connectionstring))
-                {
-                    context.Open();
+                //Header
+                context.Repository.InvoiceDetailsRepository.Update(invoiceViewModel);
 
-                    //Header
-                    UpdateHeader(invoiceViewModel, context);
+                //Details:
+                context.Repository.InvoiceDetailsRepository.RemoveInvoiceIdById(invoiceViewModel.Id);
+                context.Repository.InvoiceDetailsRepository.Create(invoiceViewModel.InvoiceDetails, invoiceViewModel.Id);
 
-                    //Remove
-                    RemoverInvoiceDetail(invoiceViewModel.Id, context);
-
-                    //Detail
-                    AddInvoiceDetail(invoiceViewModel, context);
-
-
-                }
-
-                transaction.Complete();
+                //Confirm Changes
+                context.SaveChange();
             }
+
+           
+
+
+            //using (var transaction = new TransactionScope())
+            //{
+            //    using (var context = new SqlConnection(Parameters.Connectionstring))
+            //    {
+            //        context.Open();
+
+            //        //Header
+            //        UpdateHeader(invoiceViewModel, context);
+
+            //        //Remove
+            //        RemoverInvoiceDetail(invoiceViewModel.Id, context);
+
+            //        //Detail
+            //        //AddInvoiceDetail(invoiceViewModel, context);
+
+
+            //    }
+
+            //    transaction.Complete();
+            //}
         }
 
         public void Delete(int id)
         {
-            using (var context = new SqlConnection(Parameters.Connectionstring))
+            using (var context = _unitOfwork.Create())
             {
-                context.Open();
+                context.Repository.InvoiceRepository.Remove(id);
 
-                var cmd = new SqlCommand("Delete  From Invoices where Id = @Id", context);
-                cmd.Parameters.AddWithValue("@Id", id);
+                //Confirm Cahnge:
+                context.SaveChange();
+            }       
 
-                cmd.ExecuteNonQuery();
-            }
+            //using (var context = new SqlConnection(Parameters.Connectionstring))
+            //{
+            //    context.Open();
+
+            //    var cmd = new SqlCommand("Delete  From Invoices where Id = @Id", context);
+            //    cmd.Parameters.AddWithValue("@Id", id);
+
+            //    cmd.ExecuteNonQuery();
+            //}
         }
 
         private void RemoverInvoiceDetail(int invoiceId, SqlConnection sqlConnection)
@@ -138,38 +182,38 @@ namespace KodotiSellsService
         }
 
 
-        private void AddHeader(InvoiceViewModel invoiceViewModel, SqlConnection sqlConnection)
-        {
-            var sqlQuery = "Insert Into Invoices(ClientId, Iva, SubTotal, Total) output INSERTED.ID Values (@ClientId, @Iva, @SubTotal, @Total)";
-            var cmd = new SqlCommand(sqlQuery, sqlConnection);
+        //private void AddHeader(InvoiceViewModel invoiceViewModel, SqlConnection sqlConnection)
+        //{
+        //    var sqlQuery = "Insert Into Invoices(ClientId, Iva, SubTotal, Total) output INSERTED.ID Values (@ClientId, @Iva, @SubTotal, @Total)";
+        //    var cmd = new SqlCommand(sqlQuery, sqlConnection);
 
-            cmd.Parameters.AddWithValue("@ClientId", invoiceViewModel.ClientId);
-            cmd.Parameters.AddWithValue("@Iva", invoiceViewModel.Iva);
-            cmd.Parameters.AddWithValue("@SubTotal", invoiceViewModel.SubTotal);
-            cmd.Parameters.AddWithValue("@Total", invoiceViewModel.Total);
+        //    cmd.Parameters.AddWithValue("@ClientId", invoiceViewModel.ClientId);
+        //    cmd.Parameters.AddWithValue("@Iva", invoiceViewModel.Iva);
+        //    cmd.Parameters.AddWithValue("@SubTotal", invoiceViewModel.SubTotal);
+        //    cmd.Parameters.AddWithValue("@Total", invoiceViewModel.Total);
 
-            invoiceViewModel.Id = Convert.ToInt32(cmd.ExecuteScalar());
-        }
+        //    invoiceViewModel.Id = Convert.ToInt32(cmd.ExecuteScalar());
+        //}
 
-        private void AddInvoiceDetail(InvoiceViewModel invoiceViewModel, SqlConnection sqlConnection)
-        {
-            foreach (var details in invoiceViewModel.InvoiceDetails)
-            {
-                var sqlQuery = "Insert Into InvoiceDetail(InvoiceId,ProductId,Quantity,Price,Iva,SubTotal,Total) " +
-                                "Values (@InvoiceId,@ProductId,@Quantity,@Price,@Iva,@SubTotal,@Total)";
-                var cmd = new SqlCommand(sqlQuery, sqlConnection);
+        //private void AddInvoiceDetail(InvoiceViewModel invoiceViewModel, SqlConnection sqlConnection)
+        //{
+        //    foreach (var details in invoiceViewModel.InvoiceDetails)
+        //    {
+        //        var sqlQuery = "Insert Into InvoiceDetail(InvoiceId,ProductId,Quantity,Price,Iva,SubTotal,Total) " +
+        //                        "Values (@InvoiceId,@ProductId,@Quantity,@Price,@Iva,@SubTotal,@Total)";
+        //        var cmd = new SqlCommand(sqlQuery, sqlConnection);
 
-                cmd.Parameters.AddWithValue("@InvoiceId", invoiceViewModel.Id);
-                cmd.Parameters.AddWithValue("@ProductId", details.ProductId);
-                cmd.Parameters.AddWithValue("@Quantity", details.Quantity);
-                cmd.Parameters.AddWithValue("@Price", details.Price);
-                cmd.Parameters.AddWithValue("@Iva", details.Iva);
-                cmd.Parameters.AddWithValue("@SubTotal", details.SubTotal);
-                cmd.Parameters.AddWithValue("@Total", details.Total);
+        //        cmd.Parameters.AddWithValue("@InvoiceId", invoiceViewModel.Id);
+        //        cmd.Parameters.AddWithValue("@ProductId", details.ProductId);
+        //        cmd.Parameters.AddWithValue("@Quantity", details.Quantity);
+        //        cmd.Parameters.AddWithValue("@Price", details.Price);
+        //        cmd.Parameters.AddWithValue("@Iva", details.Iva);
+        //        cmd.Parameters.AddWithValue("@SubTotal", details.SubTotal);
+        //        cmd.Parameters.AddWithValue("@Total", details.Total);
 
-                cmd.ExecuteNonQuery();
-            }
-        }
+        //        cmd.ExecuteNonQuery();
+        //    }
+        //}
 
         private void PreparedOrder(InvoiceViewModel invoiceViewModel)
         {

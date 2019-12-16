@@ -23,7 +23,7 @@ namespace UnitOfWorkSqlServer
             InvoiceRepository = new InvoiceRepository(context, transaction);
             ProductRepository = new ProducRepository();
             ClientRepository = new ClientRepository();
-            InvoiceDetailsRepository = new InvoiceDetailsRepository();
+            InvoiceDetailsRepository = new InvoiceDetailsRepository(context, transaction);
 
         }
 
